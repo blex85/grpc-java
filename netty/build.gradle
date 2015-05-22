@@ -1,4 +1,9 @@
 description = "gRPC: Netty"
+
+configurations {
+    alpnboot
+}
+
 dependencies {
     compile project(':grpc-core'),
             libraries.hpack,
@@ -6,7 +11,9 @@ dependencies {
 
     // Tests depend on base class defined by core module.
     testCompile project(':grpc-core').sourceSets.test.output,
-                libraries.jetty_project
+                project(':grpc-testing'),
+                libraries.jetty_server,
+                libraries.jetty_servlet
 
     alpnboot alpnboot_package_name
 }

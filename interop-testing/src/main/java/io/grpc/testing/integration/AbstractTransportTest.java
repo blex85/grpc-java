@@ -32,7 +32,6 @@
 package io.grpc.testing.integration;
 
 import static io.grpc.testing.integration.Messages.PayloadType.COMPRESSABLE;
-import static io.grpc.testing.integration.Util.assertEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;

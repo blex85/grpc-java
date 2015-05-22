@@ -31,6 +31,8 @@
 
 package io.grpc.testing;
 
+import com.google.protobuf.MessageLite;
+
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -38,9 +40,28 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 
+import org.junit.Assert;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.ServerSocket;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+import javax.security.auth.x500.X500Principal;
 
 /**
  * Common utility functions useful for writing tests.
@@ -59,7 +80,7 @@ public class TestUtils {
            ServerCall<RespT> call,
            final Metadata.Headers requestHeaders,
            ServerCallHandler<ReqT, RespT> next) {
-        ServerCall.Listener<ReqT> listener = next.startCall(method,
+        return next.startCall(method,
             new SimpleForwardingServerCall<RespT>(call) {
               boolean sentHeaders;
 
@@ -84,9 +105,96 @@ public class TestUtils {
                 super.close(status, trailers);
               }
             }, requestHeaders);
-        return listener;
       }
     };
+  }
+
+  /**
+   * Picks an unused port.
+   */
+  public static int pickUnusedPort() {
+    try {
+      ServerSocket serverSocket = new ServerSocket(0);
+      int port = serverSocket.getLocalPort();
+      serverSocket.close();
+      return port;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Load a file from the resources folder.
+   *
+   * @param name  name of a file in src/main/resources/certs.
+   */
+  public static File loadCert(String name) throws IOException {
+    InputStream in = TestUtils.class.getResourceAsStream("/certs/" + name);
+    File tmpFile = File.createTempFile(name, "");
+    tmpFile.deleteOnExit();
+
+    BufferedWriter writer = new BufferedWriter(new FileWriter(tmpFile));
+    try {
+      int b;
+      while ((b = in.read()) != -1) {
+        writer.write(b);
+      }
+    } finally {
+      writer.close();
+    }
+
+    return tmpFile;
+  }
+
+  /** Assert that two messages are equal, producing a useful message if not. */
+  public static void assertEquals(MessageLite expected, MessageLite actual) {
+    if (expected == null || actual == null) {
+      Assert.assertEquals(expected, actual);
+    } else {
+      if (!expected.equals(actual)) {
+        // This assertEquals should always complete.
+        Assert.assertEquals(expected.toString(), actual.toString());
+        // But if it doesn't, then this should.
+        Assert.assertEquals(expected, actual);
+        Assert.fail("Messages not equal, but assertEquals didn't throw");
+      }
+    }
+  }
+
+  /** Assert that two lists of messages are equal, producing a useful message if not. */
+  public static void assertEquals(List<? extends MessageLite> expected,
+                                  List<? extends MessageLite> actual) {
+    if (expected == null || actual == null) {
+      Assert.assertEquals(expected, actual);
+    } else if (expected.size() != actual.size()) {
+      Assert.assertEquals(expected, actual);
+    } else {
+      for (int i = 0; i < expected.size(); i++) {
+        assertEquals(expected.get(i), actual.get(i));
+      }
+    }
+  }
+
+  /**
+   * Returns a SSLSocketFactory which uses the certificate specified in certChainFile.
+   */
+  public static SSLSocketFactory getSslSocketFactoryForCertainCert(File certChainFile)
+          throws Exception {
+    KeyStore ks = KeyStore.getInstance("JKS");
+    ks.load(null, null);
+    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+    X509Certificate cert = (X509Certificate) cf.generateCertificate(
+            new BufferedInputStream(new FileInputStream(certChainFile)));
+    X500Principal principal = cert.getSubjectX500Principal();
+    ks.setCertificateEntry(principal.getName("RFC2253"), cert);
+
+    // Set up trust manager factory to use our key store.
+    TrustManagerFactory trustManagerFactory =
+            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    trustManagerFactory.init(ks);
+    SSLContext context = SSLContext.getInstance("TLS");
+    context.init(null, trustManagerFactory.getTrustManagers(), null);
+    return context.getSocketFactory();
   }
 
   private TestUtils() {}
