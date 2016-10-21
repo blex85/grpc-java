@@ -43,7 +43,7 @@ import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.SAVE_HISTOG
 import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.SERVER_PAYLOAD;
 import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.TARGET_QPS;
 import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.TESTCA;
-import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.TLS;
+import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.TLS_PROVIDER;
 import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.TRANSPORT;
 import static io.grpc.benchmarks.qps.ClientConfiguration.ClientParam.USE_DEFAULT_CIPHERS;
 
@@ -80,7 +80,7 @@ public class OpenLoopClient {
    */
   public static void main(String... args) throws Exception {
     ClientConfiguration.Builder configBuilder = ClientConfiguration.newBuilder(
-        ADDRESS, TARGET_QPS, CLIENT_PAYLOAD, SERVER_PAYLOAD, TLS,
+        ADDRESS, TARGET_QPS, CLIENT_PAYLOAD, SERVER_PAYLOAD, TLS_PROVIDER,
         TESTCA, USE_DEFAULT_CIPHERS, TRANSPORT, DURATION, SAVE_HISTOGRAM, FLOW_CONTROL_WINDOW);
     ClientConfiguration config;
     try {

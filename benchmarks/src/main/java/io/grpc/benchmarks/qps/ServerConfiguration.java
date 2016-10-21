@@ -35,6 +35,7 @@ import static io.grpc.benchmarks.Utils.parseBoolean;
 import static java.lang.Integer.parseInt;
 
 import io.grpc.benchmarks.SocketAddressValidator;
+import io.grpc.benchmarks.TransportSecurityProvider;
 import io.grpc.benchmarks.Utils;
 import io.grpc.netty.NettyChannelBuilder;
 import java.net.InetSocketAddress;
@@ -52,7 +53,7 @@ class ServerConfiguration implements Configuration {
   private static final ServerConfiguration DEFAULT = new ServerConfiguration();
 
   Transport transport = Transport.NETTY_NIO;
-  boolean tls;
+  TransportSecurityProvider tlsProvider = TransportSecurityProvider.NONE;
   boolean useDefaultCiphers;
   boolean directExecutor;
   SocketAddress address;
@@ -83,7 +84,7 @@ class ServerConfiguration implements Configuration {
 
     @Override
     protected ServerConfiguration build0(ServerConfiguration config) {
-      if (config.tls && !config.transport.tlsSupported) {
+      if (config.tlsProvider != TransportSecurityProvider.NONE && !config.transport.tlsSupported) {
         throw new IllegalArgumentException(
             "TLS unsupported with the " + config.transport.name().toLowerCase() + " transport");
       }
@@ -168,10 +169,10 @@ class ServerConfiguration implements Configuration {
         config.address = address;
       }
     },
-    TLS("", "Enable TLS.", "" + DEFAULT.tls) {
+    TLS_PROVIDER("STR", "Set the TLS provider.", "" + DEFAULT.tlsProvider.name().toLowerCase()) {
       @Override
       protected void setServerValue(ServerConfiguration config, String value) {
-        config.tls = parseBoolean(value);
+        config.tlsProvider = TransportSecurityProvider.valueOf(value.toUpperCase());
       }
     },
     USE_DEFAULT_CIPHERS("", "Use the default JDK ciphers for TLS (Used to support Java 7).",

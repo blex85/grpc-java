@@ -37,6 +37,7 @@ import static java.util.Arrays.asList;
 
 import io.grpc.ManagedChannel;
 import io.grpc.benchmarks.Transport;
+import io.grpc.benchmarks.TransportSecurityProvider;
 import io.grpc.benchmarks.Utils;
 import io.grpc.benchmarks.proto.Control.RpcType;
 import io.grpc.benchmarks.proto.Messages;
@@ -54,10 +55,11 @@ import java.util.Set;
  * Configuration options for benchmark clients.
  */
 public class ClientConfiguration implements Configuration {
+
   private static final ClientConfiguration DEFAULT = new ClientConfiguration();
 
   Transport transport = Transport.NETTY_NIO;
-  boolean tls;
+  TransportSecurityProvider tlsProvider = TransportSecurityProvider.NONE;
   boolean testca;
   String authorityOverride = TestUtils.TEST_SERVER_HOST;
   boolean useDefaultCiphers;
@@ -81,7 +83,7 @@ public class ClientConfiguration implements Configuration {
   }
 
   public ManagedChannel newChannel() throws IOException {
-    return Utils.newClientChannel(transport, address, tls, testca, authorityOverride,
+    return Utils.newClientChannel(transport, address, tlsProvider, testca, authorityOverride,
         useDefaultCiphers, flowControlWindow, directExecutor);
   }
 
@@ -98,6 +100,7 @@ public class ClientConfiguration implements Configuration {
   }
 
   static final class Builder extends AbstractConfigurationBuilder<ClientConfiguration> {
+
     private final Collection<Param> supportedParams;
 
     private Builder(ClientParam... supportedParams) {
@@ -116,10 +119,15 @@ public class ClientConfiguration implements Configuration {
 
     @Override
     protected ClientConfiguration build0(ClientConfiguration config) {
-      if (config.tls) {
+      if (config.tlsProvider != TransportSecurityProvider.NONE) {
         if (!config.transport.tlsSupported) {
           throw new IllegalArgumentException(
               "Transport " + config.transport.name().toLowerCase() + " does not support TLS.");
+        }
+        if (!config.tlsProvider.isValidForTransport(config.transport)) {
+          throw new IllegalArgumentException(
+              "TLS provider " + config.tlsProvider.name().toLowerCase() + " cannot be used with " +
+                  "Transport " + config.transport.name().toLowerCase());
         }
 
         if (config.transport != Transport.OK_HTTP
@@ -127,7 +135,7 @@ public class ClientConfiguration implements Configuration {
           // Override the socket address with the host from the testca.
           InetSocketAddress address = (InetSocketAddress) config.address;
           config.address = TestUtils.testServerAddress(address.getHostName(),
-                  address.getPort());
+              address.getPort());
         }
       }
 
@@ -179,10 +187,10 @@ public class ClientConfiguration implements Configuration {
         config.serverPayload = parseInt(value);
       }
     },
-    TLS("", "Enable TLS.", "" + DEFAULT.tls) {
+    TLS_PROVIDER("STR", "Set the TLS provider.", "" + DEFAULT.tlsProvider.name().toLowerCase()) {
       @Override
       protected void setClientValue(ClientConfiguration config, String value) {
-        config.tls = parseBoolean(value);
+        config.tlsProvider = TransportSecurityProvider.valueOf(value.toUpperCase());
       }
     },
     TESTCA("", "Use the provided Test Certificate for TLS.", "" + DEFAULT.testca) {
@@ -192,7 +200,7 @@ public class ClientConfiguration implements Configuration {
       }
     },
     USE_DEFAULT_CIPHERS("", "Use the default JDK ciphers for TLS (Used to support Java 7).",
-            "" + DEFAULT.useDefaultCiphers) {
+        "" + DEFAULT.useDefaultCiphers) {
       @Override
       protected void setClientValue(ClientConfiguration config, String value) {
         config.useDefaultCiphers = parseBoolean(value);

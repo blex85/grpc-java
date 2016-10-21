@@ -19,6 +19,9 @@ apply plugin: 'application'
 
 description = "grpc Benchmarks"
 
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
 startScripts.enabled = false
 run.enabled = false
 
@@ -37,6 +40,7 @@ dependencies {
             project(':grpc-stub'),
             project(':grpc-protobuf'),
             project(':grpc-testing'),
+            libraries.conscrypt,
             libraries.junit,
             libraries.mockito,
             libraries.hdrhistogram,

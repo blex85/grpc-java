@@ -54,7 +54,10 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import java.io.IOException;
+import java.security.Provider;
+import java.security.Security;
 import javax.net.ssl.SSLPeerUnverifiedException;
+import org.conscrypt.OpenSSLProvider;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -66,6 +69,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class Http2OkHttpTest extends AbstractInteropTest {
+  static {
+    Security.addProvider(new OpenSSLProvider());
+  }
 
   /** Starts the server with HTTPS. */
   @BeforeClass
@@ -107,8 +113,9 @@ public class Http2OkHttpTest extends AbstractInteropTest {
             TestUtils.TEST_SERVER_HOST, getPort()));
     io.grpc.internal.TestingAccessor.setStatsContextFactory(builder, getClientStatsFactory());
     try {
-      builder.sslSocketFactory(TestUtils.newSslSocketFactoryForCa(Platform.get().getProvider(),
-              TestUtils.loadCert("ca.pem")));
+      Provider provider = Platform.get().getProvider();
+      builder.sslSocketFactory(TestUtils.newSslSocketFactoryForCa(provider,
+          TestUtils.loadCert("ca.pem")));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

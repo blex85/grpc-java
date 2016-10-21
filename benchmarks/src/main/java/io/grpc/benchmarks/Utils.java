@@ -66,6 +66,9 @@ import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
@@ -81,6 +84,17 @@ import org.HdrHistogram.Histogram;
 public final class Utils {
   private static final String UNIX_DOMAIN_SOCKET_PREFIX = "unix://";
 
+  // This purposely excludes some ciphers that are not supported by one or more providers.
+  public static final List<String> CIPHERS = Collections
+      .unmodifiableList(Arrays
+          .asList(
+            /* Java 8 */
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", /* openssl = ECDHE-ECDSA-AES128-GCM-SHA256 */
+            /* REQUIRED BY HTTP/2 SPEC */
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", /* openssl = ECDHE-RSA-AES128-GCM-SHA256 */
+            /* REQUIRED BY HTTP/2 SPEC */
+            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256" /* openssl = DHE-RSA-AES128-GCM-SHA256 */));
+
   // The histogram can record values between 1 microsecond and 1 min.
   public static final long HISTOGRAM_MAX_VALUE = 60000000L;
 
@@ -90,8 +104,7 @@ public final class Utils {
   public static final int DEFAULT_FLOW_CONTROL_WINDOW =
       NettyChannelBuilder.DEFAULT_FLOW_CONTROL_WINDOW;
 
-  private Utils() {
-  }
+  private Utils() {}
 
   public static boolean parseBoolean(String value) {
     return value.isEmpty() || Boolean.parseBoolean(value);
@@ -161,16 +174,17 @@ public final class Utils {
   }
 
   private static NettyChannelBuilder newNettyClientChannel(Transport transport,
-      SocketAddress address, boolean tls, boolean testca, int flowControlWindow,
+      SocketAddress address, TransportSecurityProvider tlsProvider, boolean testca, int flowControlWindow,
       boolean useDefaultCiphers) throws IOException {
     NettyChannelBuilder builder =
         NettyChannelBuilder.forAddress(address).flowControlWindow(flowControlWindow);
-    if (tls) {
+    if (tlsProvider != TransportSecurityProvider.NONE) {
       builder.negotiationType(NegotiationType.TLS);
       SslContext sslContext = null;
       if (testca) {
         File cert = TestUtils.loadCert("ca.pem");
         SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient().trustManager(cert);
+        sslContextBuilder.sslContextProvider(tlsProvider.provider());
         if (transport == Transport.NETTY_NIO) {
           sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, SslProvider.JDK);
         } else {
@@ -240,15 +254,16 @@ public final class Utils {
    * Create a {@link ManagedChannel} for the given parameters.
    */
   public static ManagedChannel newClientChannel(Transport transport, SocketAddress address,
-        boolean tls, boolean testca, @Nullable String authorityOverride, boolean useDefaultCiphers,
-        int flowControlWindow, boolean directExecutor) {
+        TransportSecurityProvider tlsProvider, boolean testca, @Nullable String authorityOverride,
+        boolean useDefaultCiphers, int flowControlWindow, boolean directExecutor) {
     ManagedChannelBuilder<?> builder;
     if (transport == Transport.OK_HTTP) {
-      builder = newOkhttpClientChannel(address, tls, testca, authorityOverride);
+      builder = newOkhttpClientChannel(address, tlsProvider != TransportSecurityProvider.NONE,
+              testca, authorityOverride);
     } else {
       try {
         builder = newNettyClientChannel(
-            transport, address, tls, testca, flowControlWindow, useDefaultCiphers);
+            transport, address, tlsProvider, testca, flowControlWindow, useDefaultCiphers);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }

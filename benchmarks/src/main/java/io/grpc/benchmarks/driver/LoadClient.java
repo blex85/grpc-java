@@ -39,6 +39,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.benchmarks.Transport;
+import io.grpc.benchmarks.TransportSecurityProvider;
 import io.grpc.benchmarks.Utils;
 import io.grpc.benchmarks.proto.BenchmarkServiceGrpc;
 import io.grpc.benchmarks.proto.Control;
@@ -91,14 +92,20 @@ class LoadClient {
   LoadClient(Control.ClientConfig config) throws Exception {
     log.log(Level.INFO, "Client Config \n" + config.toString());
     this.config = config;
+    Transport transport = Epoll.isAvailable() ?  Transport.NETTY_EPOLL : Transport.NETTY_NIO;
+    TransportSecurityProvider tlsProvider = TransportSecurityProvider.NONE;
+    if (config.hasSecurityParams()) {
+      tlsProvider = transport == Transport.NETTY_EPOLL ? TransportSecurityProvider.NETTY_TCNATIVE
+          : TransportSecurityProvider.DEFAULT;
+    }
     // Create the channels
     channels = new ManagedChannel[config.getClientChannels()];
     for (int i = 0; i < config.getClientChannels(); i++) {
       channels[i] =
           Utils.newClientChannel(
-              Epoll.isAvailable() ?  Transport.NETTY_EPOLL : Transport.NETTY_NIO,
+              transport,
               Utils.parseSocketAddress(config.getServerTargets(i % config.getServerTargetsCount())),
-              config.hasSecurityParams(),
+              tlsProvider,
               config.hasSecurityParams() && config.getSecurityParams().getUseTestCa(),
               config.hasSecurityParams()
                   ? config.getSecurityParams().getServerHostOverride()

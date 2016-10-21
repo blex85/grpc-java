@@ -165,13 +165,14 @@ public class GrpcSslContexts {
   private static ApplicationProtocolConfig selectApplicationProtocolConfig(SslProvider provider) {
     switch (provider) {
       case JDK: {
-        if (JettyTlsUtil.isJettyAlpnConfigured()) {
+        if (isConscryptAvailable() || JettyTlsUtil.isJettyAlpnConfigured()) {
           return ALPN;
         }
         if (JettyTlsUtil.isJettyNpnConfigured()) {
           return NPN;
         }
-        throw new IllegalArgumentException("Jetty ALPN/NPN has not been properly configured.");
+        throw new IllegalArgumentException(
+            "Conscrypt and/or Jetty ALPN/NPN has not been properly configured.");
       }
       case OPENSSL: {
         if (!OpenSsl.isAvailable()) {
@@ -186,6 +187,15 @@ public class GrpcSslContexts {
       }
       default:
         throw new IllegalArgumentException("Unsupported provider: " + provider);
+    }
+  }
+
+  static boolean isConscryptAvailable() {
+    try {
+      Class.forName("org.conscrypt.OpenSSLProvider");
+      return true;
+    } catch (ClassNotFoundException e) {
+      return false;
     }
   }
 

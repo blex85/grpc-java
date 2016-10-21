@@ -70,6 +70,24 @@ import io.grpc.okhttp.internal.framed.Http2;
 import io.grpc.okhttp.internal.framed.Settings;
 import io.grpc.okhttp.internal.framed.Variant;
 import java.io.EOFException;
+
+import java.io.FileDescriptor;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.net.InetAddress;
+import java.net.SocketAddress;
+import java.net.SocketException;
+import java.nio.channels.SocketChannel;
+import java.util.Arrays;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.BufferedSource;
+import okio.ByteString;
+import okio.Okio;
+import okio.Source;
+import okio.Timeout;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -419,11 +437,11 @@ class OkHttpClientTransport implements ConnectionClientTransport {
         Socket sock;
         try {
           if (proxyAddress == null) {
-            sock = new Socket(address.getAddress(), address.getPort());
+            SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress(address.getAddress(), address.getPort()));
+            sock = socketChannel.socket();
           } else {
             sock = createHttpProxySocket(address, proxyAddress, proxyUsername, proxyPassword);
           }
-
           if (sslSocketFactory != null) {
             sock = OkHttpTlsUpgrader.upgrade(
                 sslSocketFactory, sock, getOverridenHost(), getOverridenPort(), connectionSpec);

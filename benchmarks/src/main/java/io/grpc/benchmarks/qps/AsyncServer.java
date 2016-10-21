@@ -33,6 +33,7 @@ package io.grpc.benchmarks.qps;
 
 import com.google.common.util.concurrent.UncaughtExceptionHandlers;
 import io.grpc.Server;
+import io.grpc.benchmarks.TransportSecurityProvider;
 import io.grpc.benchmarks.Utils;
 import io.grpc.benchmarks.proto.BenchmarkServiceGrpc;
 import io.grpc.benchmarks.proto.Messages.SimpleRequest;
@@ -102,22 +103,20 @@ public class AsyncServer {
   @SuppressWarnings("LiteralClassName") // Epoll is not available on windows
   static Server newServer(ServerConfiguration config) throws IOException {
     SslContext sslContext = null;
-    if (config.tls) {
+    if (config.tlsProvider != TransportSecurityProvider.NONE) {
       System.out.println("Using fake CA for TLS certificate.\n"
           + "Run the Java client with --tls --testca");
 
       File cert = TestUtils.loadCert("server1.pem");
       File key = TestUtils.loadCert("server1.key");
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forServer(cert, key);
-      if (config.transport == ServerConfiguration.Transport.NETTY_NIO) {
-        sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, SslProvider.JDK);
-      } else {
-        // Native transport with OpenSSL
+      sslContextBuilder.sslContextProvider(config.tlsProvider.provider());
+      if (config.tlsProvider == TransportSecurityProvider.NETTY_TCNATIVE) {
         sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
+      } else {
+        sslContextBuilder = GrpcSslContexts.configure(sslContextBuilder, SslProvider.JDK);
       }
-      if (config.useDefaultCiphers) {
-        sslContextBuilder.ciphers(null);
-      }
+      sslContextBuilder.ciphers(config.useDefaultCiphers ? null : Utils.CIPHERS);
       sslContext = sslContextBuilder.build();
     }
 
@@ -229,6 +228,5 @@ public class AsyncServer {
         }
       };
     }
-
   }
 }
