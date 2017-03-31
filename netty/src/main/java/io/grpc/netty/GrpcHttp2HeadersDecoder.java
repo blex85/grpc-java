@@ -57,10 +57,10 @@ import com.google.common.io.BaseEncoding;
 import io.grpc.Metadata;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.DefaultHttp2HeadersDecoder;
+import io.netty.handler.codec.http2.HpackDecoder;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2HeadersDecoder;
-import io.netty.handler.codec.http2.internal.hpack.Decoder;
 import io.netty.util.AsciiString;
 import io.netty.util.internal.PlatformDependent;
 import java.util.ArrayList;
@@ -78,11 +78,11 @@ abstract class GrpcHttp2HeadersDecoder implements Http2HeadersDecoder,
   private static final float HEADERS_COUNT_WEIGHT_NEW = 1 / 5f;
   private static final float HEADERS_COUNT_WEIGHT_HISTORICAL = 1 - HEADERS_COUNT_WEIGHT_NEW;
 
-  private final Decoder decoder;
+  private final HpackDecoder decoder;
   private float numHeadersGuess = 8;
 
   GrpcHttp2HeadersDecoder(long maxHeaderListSize) {
-    decoder = new Decoder(maxHeaderListSize, 32 /* same as default */);
+    decoder = new HpackDecoder(maxHeaderListSize, 32 /* same as default */);
   }
 
   @Override
